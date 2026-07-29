@@ -18,7 +18,7 @@ public class Travel {
             sc.nextLine();
             switch (choice) {
                 case 1:
-                    // Append City
+                    
                     System.out.print("Enter city to append: ");
                     String city = sc.nextLine();
                     cityname.add(city);
@@ -26,7 +26,7 @@ public class Travel {
                     break;
 
                 case 2:
-                    // Insert City
+                    
                     if (cityname.size() == 0) {
                         System.out.println("List is empty. Please append a city first.");
                     } 
@@ -60,7 +60,7 @@ public class Travel {
                     }
                     break;
                 case 3:
-                    // Search City
+                    
                     System.out.print("Enter city to search: ");
                     String searchcity = sc.nextLine();
                     if (cityname.contains(searchcity))
@@ -69,7 +69,7 @@ public class Travel {
                         System.out.println(searchcity + " is not found.");
                     break;
                 case 4:
-                    // Display Cities Starting with Letter
+                    
                     System.out.print("Enter starting letter: ");
                     char letter = sc.next().charAt(0);
                     System.out.println("Cities starting with '" + letter + "':");
@@ -85,7 +85,7 @@ public class Travel {
                     break;
 
                 case 5:
-                    // Display All City
+                    
                     if (cityname.isEmpty())
                         System.out.println("No cities available.");
                     else
