@@ -9,7 +9,7 @@ interface calculator
     }
 class Arithmetic implements calculator{
     public void add(double a,double b){
-        System.out.println("Sum="+(a=b));
+        System.out.println("Sum="+(a+b));
     }
     public void sub(double a,double b){
         System.out.println("Difference="+(a-b));
@@ -30,10 +30,10 @@ public class Operation {
         System.out.println("Enter a second number:");
         double num2=sc.nextDouble();
         Arithmetic ar=new Arithmetic();
-        ar.add(num2, num2);
-        ar.sub(num2, num2);
-        ar.mul(num2, num2);
-        ar.div(num2, num2);
+        ar.add(num1, num2);
+        ar.sub(num1, num2);
+        ar.mul(num1, num2);
+        ar.div(num1, num2);
         
     }
     
