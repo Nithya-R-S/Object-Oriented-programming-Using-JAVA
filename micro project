@@ -1,0 +1,113 @@
+        }
+    }
+
+    static void addCart() throws SQLException {
+        products("");
+        int pid=number("Product ID: "), qty=number("Quantity: ");
+        if(qty<=0){System.out.println("Quantity must be positive.");return;}
+        try(Connection c=db(); PreparedStatement q=c.prepareStatement(
+                "SELECT stock FROM products WHERE id=?")) {
+            q.setInt(1,pid); ResultSet r=q.executeQuery();
+            if(!r.next()){System.out.println("Product not found.");return;}
+            if(qty>r.getInt(1)){System.out.println("Not enough stock.");return;}
+        }
+        try(Connection c=db(); PreparedStatement q=c.prepareStatement(
+                "INSERT INTO cart VALUES(?,?,?) ON DUPLICATE KEY UPDATE qty=qty+VALUES(qty)")) {
+            q.setInt(1,uid);q.setInt(2,pid);q.setInt(3,qty);q.executeUpdate();
+            System.out.println("Added to cart.");
+        }
+    }
+
+    static void cart() throws SQLException {
+        try(Connection c=db(); PreparedStatement q=c.prepareStatement(
+                "SELECT p.name,p.price,ca.qty FROM cart ca JOIN products p ON p.id=ca.product_id WHERE ca.user_id=?")) {
+            q.setInt(1,uid); ResultSet r=q.executeQuery(); double total=0;
+            while(r.next()){
+                double sub=r.getDouble("price")*r.getInt("qty"); total+=sub;
+                System.out.printf("%s x%d = Rs.%.2f%n",r.getString("name"),r.getInt("qty"),sub);
+            }
+            System.out.printf("Total: Rs.%.2f%n",total);
+        }
+    }
+
+    static void preview() throws SQLException {
+        products("");
+        int pid=number("Product ID to preview: ");
+        try(Connection c=db(); PreparedStatement q=c.prepareStatement(
+                "SELECT name,category FROM products WHERE id=?")) {
+            q.setInt(1,pid); ResultSet r=q.executeQuery();
+            if(!r.next()){System.out.println("Product not found.");return;}
+            String cat=r.getString("category");
+            String type=cat.equalsIgnoreCase("Dress")?"Virtual dress try-on":
+                cat.equalsIgnoreCase("Cosmetics")?"Cosmetic face preview":"Home decor visualization";
+            try(PreparedStatement ins=c.prepareStatement(
+                    "INSERT INTO ai_previews(user_id,product_id,preview_type) VALUES(?,?,?)")) {
+                ins.setInt(1,uid);ins.setInt(2,pid);ins.setString(3,type);ins.executeUpdate();
+            }
+            System.out.println("Preview request saved: "+type+
+                "\n(Note: real AI image rendering needs an external AI service.)");
+        }
+    }
+
+    static void order() throws SQLException {
+        try(Connection c=db()) {
+            c.setAutoCommit(false);
+            try {
+                PreparedStatement q=c.prepareStatement(
+                    "SELECT ca.product_id,ca.qty,p.price,p.stock FROM cart ca JOIN products p ON p.id=ca.product_id WHERE ca.user_id=? FOR UPDATE");
+                q.setInt(1,uid); ResultSet r=q.executeQuery(); double total=0;
+                while(r.next()){
+                    if(r.getInt("qty")>r.getInt("stock")) throw new SQLException("Insufficient stock.");
+                    total+=r.getDouble("price")*r.getInt("qty");
+                }
+                if(total==0) throw new SQLException("Cart is empty.");
+                q=c.prepareStatement("INSERT INTO orders(user_id,total,status) VALUES(?,?,'Placed')",Statement.RETURN_GENERATED_KEYS);
+                q.setInt(1,uid);q.setDouble(2,total);q.executeUpdate();
+                ResultSet key=q.getGeneratedKeys();key.next();int oid=key.getInt(1);
+                q=c.prepareStatement("SELECT product_id,qty FROM cart WHERE user_id=?");q.setInt(1,uid);r=q.executeQuery();
+                while(r.next()){
+                    int pid=r.getInt(1), qty=r.getInt(2);
+                    PreparedStatement p=c.prepareStatement("SELECT price FROM products WHERE id=?");p.setInt(1,pid);
+                    ResultSet pr=p.executeQuery();pr.next();double price=pr.getDouble(1);
+                    p=c.prepareStatement("INSERT INTO order_items VALUES(?,?,?,?)");
+                    p.setInt(1,oid);p.setInt(2,pid);p.setInt(3,qty);p.setDouble(4,price);p.executeUpdate();
+                    p=c.prepareStatement("UPDATE products SET stock=stock-? WHERE id=?");
+                    p.setInt(1,qty);p.setInt(2,pid);p.executeUpdate();
+                }
+                q=c.prepareStatement("DELETE FROM cart WHERE user_id=?");q.setInt(1,uid);q.executeUpdate();
+                c.commit();System.out.printf("Order #%d placed. Total Rs.%.2f%n",oid,total);
+            } catch(SQLException e){c.rollback();System.out.println("Order failed: "+e.getMessage());}
+            finally{c.setAutoCommit(true);}
+        }
+    }
+
+    public static void main(String[] args) {
+        try {
+            setup(); boolean logged=false;
+            while(!logged){
+                System.out.println("\n1.Register  2.Login  0.Exit");
+                int ch=number("Choice: ");
+                if(ch==1) logged=register();
+                else if(ch==2) logged=login();
+                else if(ch==0)return;
+            }
+            while(true){
+                System.out.println("\n1.Products 2.Search 3.Add cart 4.View cart 5.Preview 6.Place order 0.Exit");
+                int ch=number("Choice: ");
+                try{
+                    switch(ch){
+                        case 1: products(""); break;
+                        case 2: products(input("Search name/category: ")); break;
+                        case 3: addCart(); break;
+                        case 4: cart(); break;
+                        case 5: preview(); break;
+                        case 6: order(); break;
+                        case 0: return;
+                        default: System.out.println("Invalid choice.");
+                    }
+                }catch(SQLException e){System.out.println(e.getMessage());}
+            }
+        }catch(SQLException e){System.out.println("Database error: "+e.getMessage());}
+    }
+}
+
